@@ -1,0 +1,8 @@
+%module sub  //name of the resulting GO package
+
+%{
+#include "inc/sub.h"
+using namespace Isis;
+%}
+
+%include "inc/sub.h"
