@@ -1,0 +1,24 @@
+package delta;
+
+message Message {
+	enum Type { ERROR = 1; START = 2; STOP = 3; PING = 4; POINT = 5; }
+
+	// Type Identifier
+	required Type type = 1;
+
+	optional string info = 2;
+	optional Point point = 3;
+}
+
+message Point {
+	required double x = 1;
+	required double y = 2;
+	required double z = 3;
+}
+
+// ARM Compile Commands
+// protoc -omessage.pb message.proto
+// python ~/Downloads/nanopb/generator/nanopb_generator.py message.pb
+
+// Go Compile Commands 
+// protoc --go_out=. *.proto
