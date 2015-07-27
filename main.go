@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
+	"math"
 	"net"
 	"os"
 	"time"
@@ -15,6 +18,9 @@ import (
 
 const (
 	TIMEOUT time.Duration = time.Second * 4
+
+	CONN_LOCL string = "192.168.1.100"
+	CONN_MATL string = "127.0.0.1"
 
 	CONN_HOST string = "192.168.1.10"
 	CONN_PORT string = "80" //"2616"
@@ -59,17 +65,37 @@ func TCP() {
 	}
 }
 
+/*
+func handleConn(conn1 net.Conn) {
+	log.Println("Got a request")
+	var buf bytes.Buffer
+	n, err := io.Copy(&buf, conn)
+	if err != nil {
+		log.Println("handleConn: ", err)
+	}
+	log.Printf("%i bytes read\n", n)
+}
+*/
 func read(msg *delta.Message) error {
-	data := make([]byte, 128)
-	//if err := conn.SetReadDeadline(time.Now().Add(TIMEOUT)); err != nil {
-	//	return nil, err
-	//}
-	n, err := conn.Read(data)
+	var buf bytes.Buffer
+	n, err := io.Copy(&buf, conn)
 	if err != nil {
 		return err
 	}
-	log.Printf("%i bytes read\n", n)
-	return proto.Unmarshal(data, msg)
+	log.Printf("%d bytes read\n", n)
+	return proto.Unmarshal(buf.Bytes(), msg)
+	/*
+		data := make([]byte, 128)
+		//if err := conn.SetReadDeadline(time.Now().Add(TIMEOUT)); err != nil {
+		//	return nil, err
+		//}
+		n, err := conn.Read(data)
+		if err != nil {
+			return err
+		}
+		log.Printf("%i bytes readq\n", n)
+		return proto.Unmarshal(data, msg)
+	*/
 }
 
 func write(msg *delta.Message) error {
@@ -82,7 +108,7 @@ func write(msg *delta.Message) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("%i bytes written\n", n)
+	log.Printf("%d bytes written\n", n)
 	return nil
 }
 
@@ -95,6 +121,7 @@ func msgType(t delta.Message_Type) error {
 }
 
 func msgPoint(x, y, z float64) error {
+	log.Printf("POINT(%f, %f, %f)", x, y, z)
 	msg := &delta.Message{
 		Type: delta.Message_POINT.Enum(),
 		Point: &delta.Point{
@@ -104,10 +131,7 @@ func msgPoint(x, y, z float64) error {
 		},
 	}
 
-	if err := write(msg); err != nil {
-		return err
-	}
-	return nil
+	return write(msg)
 }
 
 // e wraps errors for TCP application commands
@@ -147,8 +171,70 @@ func ping(c *cli.Context) error {
 	return nil
 }
 
+func start(c *cli.Context) error {
+	return msgType(delta.Message_START)
+}
+func stop(c *cli.Context) error {
+	return msgType(delta.Message_STOP)
+}
+func point(c *cli.Context) error {
+	return msgPoint(0.02, 0.02, 0.0)
+}
 func xbox(c *cli.Context) error {
 	return xboxDriver()
+}
+func set(c *cli.Context) error {
+	return nil // TODO
+}
+func get(c *cli.Context) error {
+	return msgType(delta.Message_GET)
+}
+func circle(c *cli.Context) error {
+	ts := time.Now()
+	for time.Since(ts).Seconds() < math.Pi*4 {
+		t := time.Since(ts).Seconds()
+		if err := msgPoint(math.Sin(t)*0.04, math.Cos(t)*0.04, 0); err != nil {
+			log.Println(err)
+		}
+		time.Sleep(time.Millisecond * 3)
+	}
+
+	if err := msgPoint(0, 0, 0); err != nil {
+		return err
+	}
+
+	return nil
+}
+func proxy(c *cli.Context) error {
+	TCP() // INIT
+
+	addr, err := net.ResolveUDPAddr("udp", ":8080")
+	if err != nil {
+		return err
+	}
+	udp, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return err
+	}
+	defer udp.Close()
+
+	for {
+		var buf bytes.Buffer
+		n, err := io.Copy(&buf, udp)
+		if err != nil {
+			return err
+		}
+		log.Printf("%d bytes read\n", n)
+		fmt.Print(buf.String())
+
+		// MATLAB CONVERSION
+
+		if err := msgPoint(0.01, 0.01, 0.01); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func listen(c *cli.Context) error {
@@ -173,6 +259,8 @@ func test(c *cli.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Printf("Message = %d bytes", len(data))
 
 	rsp := &delta.Message{}
 	if err := proto.Unmarshal(data, rsp); err != nil {
@@ -200,6 +288,23 @@ func main() {
 			Action:  e(ping),
 		},
 		{
+			Name:    "start",
+			Aliases: []string{"s"},
+			Usage:   "start allows motor positioning commands",
+			Action:  e(start),
+		},
+		{
+			Name:    "stop",
+			Aliases: []string{"h"},
+			Usage:   "stop ignores motor positioning commands",
+			Action:  e(stop),
+		},
+		{
+			Name:   "point",
+			Usage:  "send point command",
+			Action: e(point),
+		},
+		{
 			Name:    "xbox",
 			Aliases: []string{"x"},
 			Usage:   "xbox control",
@@ -216,6 +321,28 @@ func main() {
 			Aliases: []string{"t"},
 			Usage:   "simple test function",
 			Action:  test,
+		},
+		{
+			Name:    "set",
+			Aliases: []string{"s"},
+			Usage:   "set motoro data",
+			Action:  e(set),
+		},
+		{
+			Name:    "get",
+			Aliases: []string{"g"},
+			Usage:   "get motoro data",
+			Action:  e(get),
+		},
+		{
+			Name:   "circle",
+			Usage:  "make a circle",
+			Action: e(circle),
+		},
+		{
+			Name:   "proxy",
+			Usage:  "proxy matlab commands to points commands",
+			Action: e(proxy),
 		},
 	}
 

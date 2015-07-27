@@ -11,6 +11,7 @@ It is generated from these files:
 It has these top-level messages:
 	Message
 	Point
+	Motor
 */
 package delta
 
@@ -29,6 +30,8 @@ const (
 	Message_STOP  Message_Type = 3
 	Message_PING  Message_Type = 4
 	Message_POINT Message_Type = 5
+	Message_SET   Message_Type = 6
+	Message_GET   Message_Type = 7
 )
 
 var Message_Type_name = map[int32]string{
@@ -37,6 +40,8 @@ var Message_Type_name = map[int32]string{
 	3: "STOP",
 	4: "PING",
 	5: "POINT",
+	6: "SET",
+	7: "GET",
 }
 var Message_Type_value = map[string]int32{
 	"ERROR": 1,
@@ -44,6 +49,8 @@ var Message_Type_value = map[string]int32{
 	"STOP":  3,
 	"PING":  4,
 	"POINT": 5,
+	"SET":   6,
+	"GET":   7,
 }
 
 func (x Message_Type) Enum() *Message_Type {
@@ -68,6 +75,7 @@ type Message struct {
 	Type             *Message_Type `protobuf:"varint,1,req,name=type,enum=delta.Message_Type" json:"type,omitempty"`
 	Info             *string       `protobuf:"bytes,2,opt,name=info" json:"info,omitempty"`
 	Point            *Point        `protobuf:"bytes,3,opt,name=point" json:"point,omitempty"`
+	Motor            *Motor        `protobuf:"bytes,5,opt,name=motor" json:"motor,omitempty"`
 	XXX_unrecognized []byte        `json:"-"`
 }
 
@@ -92,6 +100,13 @@ func (m *Message) GetInfo() string {
 func (m *Message) GetPoint() *Point {
 	if m != nil {
 		return m.Point
+	}
+	return nil
+}
+
+func (m *Message) GetMotor() *Motor {
+	if m != nil {
+		return m.Motor
 	}
 	return nil
 }
@@ -124,6 +139,78 @@ func (m *Point) GetY() float64 {
 func (m *Point) GetZ() float64 {
 	if m != nil && m.Z != nil {
 		return *m.Z
+	}
+	return 0
+}
+
+type Motor struct {
+	Id               *int32 `protobuf:"varint,1,req,name=id" json:"id,omitempty"`
+	P                *int32 `protobuf:"varint,2,opt,name=p" json:"p,omitempty"`
+	I                *int32 `protobuf:"varint,3,opt,name=i" json:"i,omitempty"`
+	D                *int32 `protobuf:"varint,4,opt,name=d" json:"d,omitempty"`
+	Position         *int32 `protobuf:"varint,5,opt,name=position" json:"position,omitempty"`
+	Velocity         *int32 `protobuf:"varint,6,opt,name=velocity" json:"velocity,omitempty"`
+	Torque           *int32 `protobuf:"varint,7,opt,name=torque" json:"torque,omitempty"`
+	Punch            *int32 `protobuf:"varint,8,opt,name=punch" json:"punch,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *Motor) Reset()         { *m = Motor{} }
+func (m *Motor) String() string { return proto.CompactTextString(m) }
+func (*Motor) ProtoMessage()    {}
+
+func (m *Motor) GetId() int32 {
+	if m != nil && m.Id != nil {
+		return *m.Id
+	}
+	return 0
+}
+
+func (m *Motor) GetP() int32 {
+	if m != nil && m.P != nil {
+		return *m.P
+	}
+	return 0
+}
+
+func (m *Motor) GetI() int32 {
+	if m != nil && m.I != nil {
+		return *m.I
+	}
+	return 0
+}
+
+func (m *Motor) GetD() int32 {
+	if m != nil && m.D != nil {
+		return *m.D
+	}
+	return 0
+}
+
+func (m *Motor) GetPosition() int32 {
+	if m != nil && m.Position != nil {
+		return *m.Position
+	}
+	return 0
+}
+
+func (m *Motor) GetVelocity() int32 {
+	if m != nil && m.Velocity != nil {
+		return *m.Velocity
+	}
+	return 0
+}
+
+func (m *Motor) GetTorque() int32 {
+	if m != nil && m.Torque != nil {
+		return *m.Torque
+	}
+	return 0
+}
+
+func (m *Motor) GetPunch() int32 {
+	if m != nil && m.Punch != nil {
+		return *m.Punch
 	}
 	return 0
 }

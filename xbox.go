@@ -10,6 +10,25 @@ import (
 	//"github.com/kylelemons/gousb/usbid"
 )
 
+const (
+	Empty      byte = iota // 00000000 ( 0) no LEDs
+	WarnAll                // 00000001 ( 1) flash all briefly
+	NewPlayer1             // 00000010 ( 2) p1 flash then solid
+	NewPlayer2             // 00000011
+	NewPlayer3             // 00000100
+	NewPlayer4             // 00000101
+	Player1                // 00000110 ( 6) p1 solid
+	Player2                // 00000111
+	Player3                // 00001000
+	Player4                // 00001001
+	Waiting                // 00001010 (10) empty w/ loops
+	WarnPlayer             // 00001011 (11) flash active
+	_                      // 00001100 (12) empty
+	Battery                // 00001101 (13) squiggle
+	Searching              // 00001110 (14) slow flash
+	Booting                // 00001111 (15) solid then flash
+)
+
 type xboxCtrl struct {
 	ctx        *usb.Context
 	controller *usb.Device
@@ -25,18 +44,6 @@ type xboxCtrl struct {
 	yLS float64
 	xRS float64
 	yRS float64
-}
-
-func (x *xboxCtrl) send() {
-	// Format for delta arm
-	// 0.04 m radius, 16 bit max = 32768
-	dFmt := func(a float64) float64 {
-		return a / 32768 * 0.04
-	}
-
-	if err := msgPoint(dFmt(x.xLS), dFmt(x.yLS), 0); err != nil {
-		log.Println("xbox: ", err)
-	}
 }
 
 func xboxDriver() error {
@@ -92,24 +99,42 @@ func xboxDriver() error {
 	return nil
 }
 
-const (
-	Empty      byte = iota // 00000000 ( 0) no LEDs
-	WarnAll                // 00000001 ( 1) flash all briefly
-	NewPlayer1             // 00000010 ( 2) p1 flash then solid
-	NewPlayer2             // 00000011
-	NewPlayer3             // 00000100
-	NewPlayer4             // 00000101
-	Player1                // 00000110 ( 6) p1 solid
-	Player2                // 00000111
-	Player3                // 00001000
-	Player4                // 00001001
-	Waiting                // 00001010 (10) empty w/ loops
-	WarnPlayer             // 00001011 (11) flash active
-	_                      // 00001100 (12) empty
-	Battery                // 00001101 (13) squiggle
-	Searching              // 00001110 (14) slow flash
-	Booting                // 00001111 (15) solid then flash
-)
+func (x *xboxCtrl) send() {
+	// Format for delta arm
+	// 0.04 m radius, 16 bit max = 32768
+	dFmt := func(a float64) float64 {
+		return a / 32768 * 0.04
+	}
+
+	if err := msgPoint(dFmt(x.xLS), dFmt(x.yLS), dFmt(x.yRS)); err != nil {
+		log.Println("xbox: ", err)
+	}
+}
+
+func (x *xboxCtrl) xbox360() {
+	// https://github.com/Grumbel/xboxdrv/blob/master/PROTOCOL
+	x.led(Empty)
+	time.Sleep(1 * time.Second)
+	x.setPlayer(Player1)
+
+	/*
+		var b [512]byte
+		for {
+			n, err := x.in.Read(b[:])
+			log.Printf("read %d bytes: % x [err: %v]", n, b[:n], err)
+			if err != nil {
+				break
+			}
+		}
+	*/
+
+	x.controller.ReadTimeout = 60 * time.Second
+	for {
+		x.decode()
+		x.send()
+		time.Sleep(time.Millisecond * 6)
+	}
+}
 
 func (x *xboxCtrl) led(b byte) {
 	x.out.Write([]byte{0x01, 0x03, b})
@@ -265,27 +290,4 @@ func (x *xboxCtrl) decode() {
 		}
 	*/
 	x.last, x.cur = x.cur, x.last
-}
-
-func (x *xboxCtrl) xbox360() {
-	// https://github.com/Grumbel/xboxdrv/blob/master/PROTOCOL
-	x.led(Empty)
-	time.Sleep(1 * time.Second)
-	x.setPlayer(Player1)
-
-	var b [512]byte
-	for {
-		n, err := x.in.Read(b[:])
-		log.Printf("read %d bytes: % x [err: %v]", n, b[:n], err)
-		if err != nil {
-			break
-		}
-	}
-
-	x.controller.ReadTimeout = 60 * time.Second
-	for {
-		x.decode()
-		x.send()
-		time.Sleep(time.Millisecond * 10)
-	}
 }
